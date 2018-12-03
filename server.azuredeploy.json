@@ -216,7 +216,7 @@
     "OMSExtensionTypes": {
       "windowsserver": "MicrosoftMonitoringAgent",
       "centos": "OmsAgentForLinux"
-      "Oracle-Linux" : "OmsAgentForLinux"
+      "oracle-linux" : "OmsAgentForLinux"
     },
     "OMSExtensionType": "[variables('OMSExtensionTypes')[toLower(parameters('infrastructure').operatingSystem.imageOffer)]]",
     "windowsProvisionerModuleName": "Provisioner.zip",
