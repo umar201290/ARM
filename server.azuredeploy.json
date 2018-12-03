@@ -491,7 +491,7 @@
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/ChefClient')]",
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/OMSClient')]"
         ],
-        "condition": "[and(parameters('infrastructure').disk.encryption.enabled, equals(parameters('infrastructure').operatingSystem.imageOffer, 'CentOS'))]",
+        "condition": "[and(parameters('infrastructure').disk.encryption.enabled, equals(parameters('infrastructure').operatingSystem.imageOffer, 'Oracle-Linux'))]",
         "apiVersion": "2015-06-15",
         "location": "[resourceGroup().location]",
         "properties": {
