@@ -209,24 +209,6 @@
             "name": "[concat(variables('vmName'), '-disk-data-0')]",
             "lun": 0,
             "createOption": "Empty"
-          },
-          {
-            "diskSizeGB": "[parameters('infrastructure').disk.attachedDisk2.sizeGB]",
-            "name": "[concat(variables('vmName'), '-disk-data-1')]",
-            "lun": 1,
-            "createOption": "Empty"
-          },
-          {
-            "diskSizeGB": "[parameters('infrastructure').disk.attachedDisk3.sizeGB]",
-            "name": "[concat(variables('vmName'), '-disk-data-2')]",
-            "lun": 2,
-            "createOption": "Empty"
-          },
-          {
-            "diskSizeGB": "[parameters('infrastructure').disk.attachedDisk4.sizeGB]",
-            "name": "[concat(variables('vmName'), '-disk-data-3')]",
-            "lun": 3,
-            "createOption": "Empty"
           }
         ],
         "false": [
