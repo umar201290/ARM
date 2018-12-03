@@ -234,9 +234,7 @@
       "encryptionKeKURL": "[concat(variables('encryptionKeyVaultURL'), '/keys/', variables('KeKName'), '/', variables('KeKID'))]",
       "encryptionKeyVaultResourceID": "[concat('/subscriptions/', parameters('infrastructure').disk.encryption.keyVaultSubscriptionID,'/resourceGroups/',parameters('infrastructure').disk.encryption.keyVaultResourceGroup,'/providers/Microsoft.KeyVault/vaults/', parameters('infrastructure').disk.encryption.keyVaultName)]",
       "SaSKey": "?sv=2017-07-29&ss=f&srt=sco&sp=rl&se=2020-04-24T12:18:31Z&st=2018-04-24T04:18:31Z&spr=https&sig=ExxG0FM7%2BQUzzhisRRCl%2FzAMbj7bwM3BpVZde6%2F8O2s%3D",
-      "serverEncryptionUpdateTemplate": "[concat('https://ncrsharedtemplates.file.core.windows.net/arm-application-tier/', variables('script_version'), '/encrypt_disks.azuredeploy.json', variables('SaSKey'))]",
-      "SaSKey2": "?sv=2017-11-09&ss=bfqt&srt=sco&sp=rwdlacup&se=2019-05-02T15:55:44Z&st=2018-09-11T07:55:44Z&spr=https&sig=2hhSEFNe%2F5M2ORJWl9EVisasjnrzv1whnZe0zJGbgnA%3D",
-      "PSScriptURL": "[concat('https://ncrsaassharedtemplates.file.core.windows.net/arm-application-tier/SQL Templates/InitDisk.ps1', variables('SaSKey2'))]"
+      "serverEncryptionUpdateTemplate": "[concat('https://ncrsharedtemplates.file.core.windows.net/arm-application-tier/', variables('script_version'), '/encrypt_disks.azuredeploy.json', variables('SaSKey'))]"
     },
     "resources": [
       {
@@ -304,8 +302,7 @@
                 "storageAccountType": "[parameters('infrastructure').disk.osDriveStorageAccountSize]"
               }
             },
-            "dataDisks": 
-              "[variables('attachedDiskConfig')[string(parameters('infrastructure').disk.attachedDisk.enabled)]]"
+            "dataDisks": "[variables('attachedDiskConfig')[string(parameters('infrastructure').disk.attachedDisk.enabled)]]"
           },
           "networkProfile": {
             "networkInterfaces": [
@@ -401,8 +398,7 @@
         "dependsOn": [
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]",
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/DSCProvisioner')]",
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/joindomain')]",
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/InitDataDisk')]"
+          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/joindomain')]"
         ],
         "location": "[resourceGroup().location]",
         "properties": {
@@ -438,8 +434,7 @@
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]",
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/DSCProvisioner')]",
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/joindomain')]",
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/ChefClient')]",
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/InitDataDisk')]"
+          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/ChefClient')]"
         ],
         "location": "[resourceGroup().location]",
         "properties": {
@@ -463,8 +458,7 @@
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/DSCProvisioner')]",
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/joindomain')]",
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/ChefClient')]",
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/OMSClient')]",
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/InitDataDisk')]"
+          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/OMSClient')]"
         ],
         "condition": "[and(parameters('infrastructure').disk.encryption.enabled, not(equals(parameters('infrastructure').operatingSystem.imageOffer, 'CentOS')))]",
         "apiVersion": "2016-04-30-preview",
@@ -529,7 +523,6 @@
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/DSCProvisioner')]",
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/joindomain')]",
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/ChefClient')]",
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/InitDataDisk')]",
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/OMSClient')]",
           "[resourceId('Microsoft.Compute/virtualMachines/extensions',  variables('vmName'), variables('encryptionExtensionName'))]"
         ],
