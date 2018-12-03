@@ -1,0 +1,425 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "4.2.31.0",
+  "parameters": {
+    "adminUserName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "adminPassword": {
+      "type": "securestring"
+    },
+    "chefBase64ValidatorKey": {
+      "type": "securestring",
+      "defaultValue": ""
+    },
+    "domainPassword": {
+      "type": "securestring",
+      "defaultValue": "NOT_PROVIDED"
+    },
+    "domainUsername": {
+      "type": "securestring",
+      "defaultValue": "NOT_PROVIDED"
+    },
+    "vaultRoleID": {
+      "type": "securestring",
+      "defaultValue": "NOT_PROVIDED"
+    },
+    "vaultSecretID": {
+      "type": "securestring",
+      "defaultValue": "NOT_PROVIDED"
+    },
+    "encryptionAADClientID": {
+      "type": "securestring",
+      "defaultValue": "NOT_PROVIDED"
+    },
+    "encryptionAADClientSecret": {
+      "type": "securestring",
+      "defaultValue": "NOT_PROVIDED"
+    },
+    "encryptionPassphrase": {
+      "type": "securestring",
+      "defaultValue": "NOT_PROVIDED"
+    },
+    "product": {
+      "type": "object",
+      "defaultValue": {
+        "name": "chf",
+        "tier_name": "web"
+      }
+    },
+    "network": {
+      "type": "object",
+      "defaultValue": {
+        "virtualNetwork": {
+          "name": "defaultVNet",
+          "resourceGroup": "SecNet"
+        },
+        "subnet": {
+          "name": "defaultWeb",
+          "vmBaseIP": "10.0.42",
+          "lastOctetStart": "7"
+        },
+        "loadBalancing": {
+          "enabled": true,
+          "ipType": "Private",
+          "ipConfiguration": {
+            "public": {
+              "name": "DNE",
+              "resourceGroup": "DNE"
+            },
+            "private": {
+              "subnet": "defaultWeb",
+              "staticIP": "10.0.42.6"
+            }
+          },
+          "rules": {
+            "take": "one",
+            "first": {
+              "port": 80,
+              "backendPort": 80,
+              "timeout": 5,
+              "loadDistribution": "Default",
+              "protocol": "Tcp"
+            },
+            "second": {
+              "port": 443,
+              "backendPort": 443,
+              "timeout": 5,
+              "loadDistribution": "Default",
+              "protocol": "Tcp"
+            }
+          }
+        }
+      }
+    },
+    "infrastructure": {
+      "type": "object",
+      "defaultValue": {
+        "numberOfServers": 2,
+        "serverSize": "Standard_A1",
+        "operatingSystem": {
+          "imagePublisher": "OpenLogic",
+          "imageOffer": "CentOS",
+          "version": "7.3"
+        },
+        "disk": {
+          "osDriveStorageAccountSize": "Standard_LRS",
+          "attachedDisk": {
+            "enabled": false,
+            "linuxMountPath": "/data",
+            "type": "Standard_LRS",
+            "sizeGB": 40
+          }
+        }
+      }
+    },
+    "chef": {
+      "type": "object",
+      "defaultValue": {
+        "enabled": false,
+        "policyGroup": "tech_demo",
+        "policyName": "web_server",
+        "validatorClientName": "POCValidator",
+        "serverUrl": "https://POCChefServer.pocdomain.com",
+        "organization": "ncr",
+        "version": "13.1.31"
+      }
+    },
+    "vault": {
+      "type": "object",
+      "defaultValue": {
+        "enabled": false
+      }
+    },
+    "activeDirectory": {
+      "type": "object",
+      "defaultValue": {
+        "enabled": false,
+        "domain": "contoso.com",
+        "joinOptions": 3,
+        "linuxAdminGroups": "apopsadmin"
+      }
+    },
+    "oms": {
+      "type": "object",
+      "defaultValue": {
+        "enabled": false,
+        "OMSWorkspaceID": "DNE",
+        "OMSWorkspaceKey": "DNE"
+      }
+    }
+  },
+  "variables": {
+    "script_version": "4.2.31.0",
+    "namingInfix": "[toLower(concat(parameters('product').name, parameters('product').tier_name))]",
+    "avSetName": "[concat(variables('namingInfix'),'avset')]",
+    "vnetID": "[resourceId(parameters('network').virtualNetwork.resourceGroup, 'Microsoft.Network/virtualNetworks', parameters('network').virtualNetwork.name)]",
+    "lbName": "[concat(variables('namingInfix'),'loadbalancer')]",
+    "lbBackendPool": "BackendPool",
+    "lbIPScope": "[toLower(parameters('network').loadbalancing.ipType)]",
+    "lbSubnetRef": "[concat(variables('vnetID'), '/subnets/', parameters('network').loadbalancing.ipConfiguration.private.subnet)]",
+    "lbID": "[resourceId('Microsoft.Network/loadBalancers',variables('lbName'))]",
+    "backEndAddressPoolID": "[concat(variables('lbID'), '/backendAddressPools/', variables('lbBackendPool'))]",
+    "backendAddressPools": {
+      "true": [
+        {
+          "id": "[variables('backEndAddressPoolID')]"
+        }
+      ],
+      "false": [
+
+      ]
+    },
+    "lbFrontEndIPConfigruations": {
+      "public": [
+        {
+          "name": "LoadBalancerFrontend",
+          "properties": {
+            "publicIPAddress": {
+              "id": "[resourceId(parameters('network').loadbalancing.ipConfiguration.public.resourceGroup, 'Microsoft.Network/publicIPAddresses',parameters('network').loadbalancing.ipConfiguration.public.name)]"
+            }
+          }
+        }
+      ],
+      "private": [
+        {
+          "name": "LoadBalancerFrontend",
+          "properties": {
+            "subnet": {
+              "id": "[variables('lbSubnetRef')]"
+            },
+            "privateIPAddress": "[parameters('network').loadbalancing.ipConfiguration.private.staticIP]",
+            "privateIPAllocationMethod": "Static"
+          }
+        }
+      ]
+    },
+    "lbRuleNameBase": "lbrule",
+    "firstLBRulePort": "[parameters('network').loadbalancing.rules.first.port]",
+    "firstLBRuleBackendPort": "[parameters('network').loadbalancing.rules.first.backendPort]",
+    "firstLBRuleLoadDistribution": "[parameters('network').loadbalancing.rules.first.loadDistribution]",
+    "firstLBRuleTimeout": "[parameters('network').loadbalancing.rules.first.timeout]",
+    "firstLBRuleProtocol": "[parameters('network').loadbalancing.rules.first.protocol]",
+    "firstLBRule": {
+      "name": "[concat(variables('lbRuleNameBase'),'P', variables('firstLBRulePort'))]",
+      "properties": {
+        "frontendIPConfiguration": {
+          "id": "[concat(variables('lbID'),'/frontendIPConfigurations/LoadBalancerFrontend')]"
+        },
+        "backendAddressPool": {
+          "id": "[variables('backEndAddressPoolID')]"
+        },
+        "protocol": "[variables('firstLBRuleProtocol')]",
+        "frontendPort": "[variables('firstLBRulePort')]",
+        "backendPort": "[variables('firstLBRuleBackendPort')]",
+        "enableFloatingIP": false,
+        "idleTimeoutInMinutes": "[variables('firstLBRuleTimeout')]",
+        "loadDistribution": "[variables('firstLBRuleLoadDistribution')]",
+        "probe": {
+          "id": "[concat(variables('lbID'),'/probes/',variables('lbRuleNameBase'),'probeP', variables('firstLBRulePort'))]"
+        }
+      }
+    },
+    "secondLBRulePort": "[parameters('network').loadbalancing.rules.second.port]",
+    "secondLBRuleBackendPort": "[parameters('network').loadbalancing.rules.second.backendPort]",
+    "secondLBRuleLoadDistribution": "[parameters('network').loadbalancing.rules.second.loadDistribution]",
+    "secondLBRuleTimeout": "[parameters('network').loadbalancing.rules.second.timeout]",
+    "secondLBRuleProtocol": "[parameters('network').loadbalancing.rules.second.protocol]",
+    "secondLBRule": {
+      "name": "[concat(variables('lbRuleNameBase'),'P', variables('secondLBRulePort'))]",
+      "properties": {
+        "frontendIPConfiguration": {
+          "id": "[concat(variables('lbID'),'/frontendIPConfigurations/LoadBalancerFrontend')]"
+        },
+        "backendAddressPool": {
+          "id": "[variables('backEndAddressPoolID')]"
+        },
+        "protocol": "[variables('secondLBRuleProtocol')]",
+        "frontendPort": "[variables('secondLBRulePort')]",
+        "backendPort": "[variables('secondLBRuleBackendPort')]",
+        "enableFloatingIP": false,
+        "idleTimeoutInMinutes": "[variables('secondLBRuleTimeout')]",
+        "loadDistribution": "[variables('secondLBRuleLoadDistribution')]",
+        "probe": {
+          "id": "[concat(variables('lbID'),'/probes/',variables('lbRuleNameBase'),'probeP', variables('secondLBRulePort'))]"
+        }
+      }
+    },
+    "lbRules": {
+      "none": [
+
+      ],
+      "one": [
+        "[variables('firstLBRule')]"
+      ],
+      "two": [
+        "[variables('firstLBRule')]",
+        "[variables('secondLBRule')]"
+      ]
+    },
+    "firstLBProbe": {
+      "name": "[concat(variables('lbRuleNameBase'),'probeP', variables('firstLBRulePort'))]",
+      "properties": {
+        "intervalInSeconds": 5,
+        "numberOfProbes": 2,
+        "port": "[variables('firstLBRuleBackendPort')]",
+        "protocol": "[variables('firstLBRuleProtocol')]"
+      }
+    },
+    "secondLBProbe": {
+      "name": "[concat(variables('lbRuleNameBase'),'probeP', variables('secondLBRulePort'))]",
+      "properties": {
+        "intervalInSeconds": 5,
+        "numberOfProbes": 2,
+        "port": "[variables('secondLBRuleBackendPort')]",
+        "protocol": "[variables('secondLBRuleProtocol')]"
+      }
+    },
+    "lbProbes": {
+      "one": [
+        "[variables('firstLBProbe')]"
+      ],
+      "two": [
+        "[variables('firstLBProbe')]",
+        "[variables('secondLBProbe')]"
+      ]
+    },
+    "vmDependency": {
+      "true": "[concat('Microsoft.Network/loadBalancers/', variables('lbName'))]",
+      "false": "[concat('Microsoft.Compute/availabilitySets/', variables('avSetName'))]"
+    },
+    "SaSKey": "?sv=2017-07-29&ss=f&srt=sco&sp=rl&se=2020-04-24T12:18:31Z&st=2018-04-24T04:18:31Z&spr=https&sig=ExxG0FM7%2BQUzzhisRRCl%2FzAMbj7bwM3BpVZde6%2F8O2s%3D",
+    "serverTemplate": "[concat('https://ncrsharedtemplates.file.core.windows.net/arm-application-tier/', variables('script_version'), '/server.azuredeploy.json', variables('SaSKey'))]"
+  },
+  "resources": [
+    {
+      "name": "[variables('avSetName')]",
+      "type": "Microsoft.Compute/availabilitySets",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-04-30-preview",
+      "dependsOn": [
+
+      ],
+      "tags": {
+        "displayName": "[variables('avSetName')]"
+      },
+      "properties": {
+        "platformUpdateDomainCount": 5,
+        "platformFaultDomainCount": 2
+      },
+      "sku": {
+        "name": "Aligned"
+      }
+    },
+    {
+      "apiVersion": "2016-03-30",
+      "type": "Microsoft.Network/loadBalancers",
+      "name": "[variables('lbName')]",
+      "location": "[resourceGroup().location]",
+      "condition": "[parameters('network').loadBalancing.enabled]",
+      "dependsOn": [
+        "[concat('Microsoft.Compute/availabilitySets/', variables('avSetName'))]"
+      ],
+      "tags": {
+        "displayName": "[variables('lbName')]"
+      },
+      "properties": {
+        "availabilitySet": {
+          "id": "[resourceId('Microsoft.Compute/availabilitySets',variables('avSetName'))]"
+        },
+        "frontendIPConfigurations": "[variables('lbFrontEndIPConfigruations')[variables('lbIPScope')]]",
+        "backendAddressPools": [
+          {
+            "name": "[variables('lbBackendPool')]"
+          }
+        ],
+        "loadBalancingRules": "[variables('lbRules')[toLower(parameters('network').loadBalancing.rules.take)]]",
+        "probes": "[variables('lbProbes')[toLower(parameters('network').loadBalancing.rules.take)]]"
+      }
+    },
+    {
+      "apiVersion": "2015-01-01",
+      "name": "[concat(variables('namingInfix'), 'Srv', copyIndex())]",
+      "type": "Microsoft.Resources/deployments",
+      "copy": {
+        "name": "[concat(variables('namingInfix'),'VmSubdeployLoop')]",
+        "count": "[parameters('infrastructure').numberOfServers]"
+      },
+      "dependsOn": [
+        "[variables('vmDependency')[string(parameters('network').loadBalancing.enabled)]]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('serverTemplate')]",
+          "contentVersion": "4.2.31.0"
+        },
+        "parameters": {
+          "adminUserName": {
+            "value": "[parameters('adminUserName')]"
+          },
+          "vaultRoleID": {
+            "value": "[parameters('vaultRoleId')]"
+          },
+          "vaultSecretID": {
+            "value": "[parameters('vaultSecretID')]"
+          },
+          "encryptionAADClientID": {
+            "value": "[parameters('encryptionAADClientID')]"
+          },
+          "encryptionAADClientSecret": {
+            "value": "[parameters('encryptionAADClientSecret')]"
+          },
+          "encryptionPassphrase": {
+            "value": "[parameters('encryptionPassphrase')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "domainUsername": {
+            "value": "[parameters('domainUsername')]"
+          },
+          "domainPassword": {
+            "value": "[parameters('domainPassword')]"
+          },
+          "chefBase64ValidatorKey": {
+            "value": "[parameters('chefBase64ValidatorKey')]"
+          },
+          "product": {
+            "value": "[parameters('product')]"
+          },
+          "network": {
+            "value": "[parameters('network')]"
+          },
+          "infrastructure": {
+            "value": "[parameters('infrastructure')]"
+          },
+          "activeDirectory": {
+            "value": "[parameters('activeDirectory')]"
+          },
+          "chef": {
+            "value": "[parameters('chef')]"
+          },
+          "vault": {
+            "value": "[parameters('vault')]"
+          },
+          "oms": {
+            "value": "[parameters('oms')]"
+          },
+          "assignment": {
+            "value": {
+              "vmID": "[copyIndex()]",
+              "lbName": "[variables('lbName')]",
+              "lbID": "[variables('lbID')]",
+              "lbBackendPool": "[variables('lbBackendPool')]",
+              "avSetName": "[variables('avSetName')]"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+  }
+}
