@@ -215,7 +215,7 @@
     },
     "OMSExtensionTypes": {
       "windowsserver": "MicrosoftMonitoringAgent",
-      "centos": "OmsAgentForLinux"
+      "centos": "OmsAgentForLinux",
       "oracle-linux" : "OmsAgentForLinux"
     },
     "OMSExtensionType": "[variables('OMSExtensionTypes')[toLower(parameters('infrastructure').operatingSystem.imageOffer)]]",
