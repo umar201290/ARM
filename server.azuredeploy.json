@@ -1,0 +1,552 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "4.2.31.0",
+  "parameters": {
+    "adminUserName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "adminPassword": {
+      "type": "securestring"
+    },
+    "chefBase64ValidatorKey": {
+      "type": "securestring",
+      "defaultValue": ""
+    },
+    "domainUsername": {
+      "type": "securestring",
+      "defaultValue": "NOT_PROVIDED"
+    },
+    "domainPassword": {
+      "type": "securestring",
+      "defaultValue": "NOT_PROVIDED"
+    },
+    "vaultRoleID": {
+      "type": "securestring",
+      "defaultValue": "NOT_PROVIDED"
+    },
+    "vaultSecretID": {
+      "type": "securestring",
+      "defaultValue": "NOT_PROVIDED"
+    },
+    "encryptionAADClientID": {
+      "type": "securestring",
+      "defaultValue": "NOT_PROVIDED"
+    },
+    "encryptionAADClientSecret": {
+      "type": "securestring",
+      "defaultValue": "NOT_PROVIDED"
+    },
+    "encryptionPassphrase": {
+      "type": "securestring",
+      "defaultValue": "NOT_PROVIDED"
+    },
+    "product": {
+      "type": "object",
+      "defaultValue": {
+        "name": "chf",
+        "tier_name": "web"
+      }
+    },
+    "network": {
+      "type": "object",
+      "defaultValue": {
+        "virtualNetwork": {
+          "name": "defaultVNet",
+          "resourceGroup": "SecNet"
+        },
+        "subnet": {
+          "name": "defaultWeb",
+          "vmBaseIP": "10.0.42",
+          "lastOctetStart": "7"
+        },
+        "loadBalancing": {
+          "enabled": true,
+          "ipType": "Private",
+          "ipConfiguration": {
+            "public": {
+              "name": "DNE",
+              "resourceGroup": "DNE"
+            },
+            "private": {
+              "subnet": "defaultWeb",
+              "staticIP": "10.0.42.6"
+            }
+          },
+          "rules": {
+            "take": "one",
+            "first": {
+              "port": 80,
+              "backendPort": 80,
+              "timeout": 5
+            },
+            "second": {
+              "port": 443,
+              "backendPort": 443,
+              "timeout": 5
+            }
+          }
+        }
+      }
+    },
+    "infrastructure": {
+      "type": "object",
+      "defaultValue": {
+        "numberOfServers": 2,
+        "serverSize": "Standard_A1",
+        "operatingSystem": {
+          "imagePublisher": "OpenLogic",
+          "imageOffer": "CentOS",
+          "version": "7.3"
+        },
+        "disk": {
+          "osDriveStorageAccountSize": "Standard_LRS",
+          "attachedDisk": {
+            "enabled": false,
+            "linuxMountPath": "/data",
+            "type": "Standard_LRS",
+            "sizeGB": 40
+          },
+          "encryption": {
+            "enabled": false,
+            "keyVaultName": "NOT_Provided",
+            "sequenceNumber": "1.0",
+            "keyVaultSubscriptionID": "NOT_Provided",
+            "keyVaultResourceGroup": "NOT_Provided",
+            "KeK": {
+              "name": "KeK",
+              "algorithm": "RSA-OAEP",
+              "keyVersion": "1eed2f3173b443a5852d40f73bb27d80"
+            }
+          }
+        }
+      }
+    },
+    "chef": {
+      "type": "object",
+      "defaultValue": {
+        "enabled": false,
+        "policyGroup": "tech_demo",
+        "policyName": "web_server",
+        "validatorClientName": "POCValidator",
+        "serverUrl": "https://POCChefServer.pocdomain.com",
+        "organization": "ncr",
+        "version": "13.1.31"
+      }
+    },
+    "vault": {
+      "type": "object",
+      "defaultValue": {
+        "enabled": false
+      }
+    },
+    "activeDirectory": {
+      "type": "object",
+      "defaultValue": {
+        "enabled": false,
+        "domain": "contoso.com",
+        "joinOptions": 3,
+        "linuxAdminGroups": "apopsadmin"
+      }
+    },
+    "assignment": {
+      "type": "object",
+      "defaultValue": {
+        "vmID": 0,
+        "lbName": "loadbalancer",
+        "lbID": "lbID",
+        "lbBackendPool": "backend",
+        "avSetName": "avset"
+      }
+    },
+    "oms": {
+      "type": "object",
+      "defaultValue": {
+        "enabled": false,
+        "OMSWorkspaceID": "DNE",
+        "OMSWorkspaceKey": "DNE"
+      }
+    }
+  },
+  "variables": {
+    "script_version": "4.2.31.0",
+    "namingInfix": "[toLower(concat(parameters('product').name, parameters('product').tier_name, '-'))]",
+    "nicBaseName": "[concat(variables('namingInfix'),'nic')]",
+    "vmBaseName": "[concat(variables('namingInfix'),'vm')]",
+    "vmName": "[concat(variables('vmBaseName'), parameters('assignment').vmID)]",
+    "nicName": "[concat(variables('nicBaseName'), parameters('assignment').vmID)]",
+    "vnetID": "[resourceId(parameters('network').virtualNetwork.resourceGroup, 'Microsoft.Network/virtualNetworks', parameters('network').virtualNetwork.name)]",
+    "vmSubnetRef": "[concat(variables('vnetID'), '/subnets/', parameters('network').subnet.name)]",
+    "backEndAddressPoolID": "[concat(parameters('assignment').lbID, '/backendAddressPools/', parameters('assignment').lbBackendPool)]",
+    "backendAddressPools": {
+      "true": [
+        {
+          "id": "[variables('backEndAddressPoolID')]"
+        }
+      ],
+      "false": [
+
+      ]
+    },
+    "chefExtensionTypes": {
+      "WindowsServer": "ChefClient",
+      "CentOS": "LinuxChefClient",
+      "Oracle-Linux" : "LinuxChefClient"
+    },
+    "chefExtensionType": "[variables('chefExtensionTypes')[toLower(parameters('infrastructure').operatingSystem.imageOffer)]]",
+    "encryptionExtensionNames": {
+      "WindowsServer": "WindowsDiskEnryption",
+      "CentOS": "LinuxDiskEnryption",
+      "Oracle-Linux" : "LinuxChefClient"
+    },
+    "encryptionExtensionName": "[variables('encryptionExtensionNames')[toLower(parameters('infrastructure').operatingSystem.imageOffer)]]",
+    "attachedDiskConfig": {
+      "true": [
+        {
+          "diskSizeGB": "[parameters('infrastructure').disk.attachedDisk.sizeGB]",
+          "name": "[concat(variables('vmName'), '-disk-data-0')]",
+          "lun": 0,
+          "createOption": "Empty"
+        }
+      ],
+      "false": [
+
+      ]
+    },
+    "OMSExtensionTypes": {
+      "windowsserver": "MicrosoftMonitoringAgent",
+      "centos": "OmsAgentForLinux"
+    },
+    "OMSExtensionType": "[variables('OMSExtensionTypes')[toLower(parameters('infrastructure').operatingSystem.imageOffer)]]",
+    "windowsProvisionerModuleName": "Provisioner.zip",
+    "windowsProvisionerDSCModule": "[concat('https://artifactory.ncrsaas.com/artifactory/azure/templates/resources/', variables('script_version'), '/', variables('windowsProvisionerModuleName'))]",
+    "centosProvisionerScriptName": "deploy.sh",
+    "centosProvisionerScriptPath": "[concat('https://artifactory.ncrsaas.com/artifactory/azure/templates/resources/', variables('script_version'), '/', variables('centosProvisionerScriptName'))]",
+    "encryptionKeyVaultURL": "[concat('https://', parameters('infrastructure').disk.encryption.keyVaultName, '.vault.azure.net')]",
+    "encryptionSequenceNumber": "[parameters('infrastructure').disk.encryption.sequenceNumber]",
+    "KeKName": "[parameters('infrastructure').disk.encryption.KeK.name]",
+    "KeKID": "[parameters('infrastructure').disk.encryption.KeK.keyVersion]",
+    "encryptionKeKAlgorithm": "[parameters('infrastructure').disk.encryption.KeK.algorithm]",
+    "encryptionKeKURL": "[concat(variables('encryptionKeyVaultURL'), '/keys/', variables('KeKName'), '/', variables('KeKID'))]",
+    "encryptionKeyVaultResourceID": "[concat('/subscriptions/', parameters('infrastructure').disk.encryption.keyVaultSubscriptionID,'/resourceGroups/',parameters('infrastructure').disk.encryption.keyVaultResourceGroup,'/providers/Microsoft.KeyVault/vaults/', parameters('infrastructure').disk.encryption.keyVaultName)]",
+    "SaSKey": "?sv=2017-07-29&ss=f&srt=sco&sp=rl&se=2020-04-24T12:18:31Z&st=2018-04-24T04:18:31Z&spr=https&sig=ExxG0FM7%2BQUzzhisRRCl%2FzAMbj7bwM3BpVZde6%2F8O2s%3D",
+    "serverEncryptionUpdateTemplate": "[concat('https://ncrsharedtemplates.file.core.windows.net/arm-application-tier/', variables('script_version'), '/encrypt_disks.azuredeploy.json', variables('SaSKey'))]"
+  },
+  "resources": [
+    {
+      "name": "[variables('nicName')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2017-06-01",
+      "tags": {
+        "displayName": "[variables('nicName')]"
+      },
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "primary",
+            "properties": {
+              "privateIPAllocationMethod": "Static",
+              "privateIPAddress": "[concat(parameters('network').subnet.vmBaseIP, '.', add(parameters('network').subnet.lastOctetStart,parameters('assignment').vmID))]",
+              "subnet": {
+                "id": "[variables('vmSubnetRef')]"
+              },
+              "loadBalancerBackendAddressPools": "[variables('backendAddressPools')[string(parameters('network').loadBalancing.enabled)]]",
+              "loadBalancerInboundNatRules": [
+
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[variables('vmName')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/networkInterfaces/', variables('nicName'))]"
+      ],
+      "apiVersion": "2016-04-30-preview",
+      "tags": {
+        "displayName": "[variables('vmName')]"
+      },
+      "properties": {
+        "availabilitySet": {
+          "id": "[resourceId('Microsoft.Compute/availabilitySets',parameters('assignment').avSetName)]"
+        },
+        "hardwareProfile": {
+          "vmSize": "[parameters('infrastructure').serverSize]"
+        },
+        "osProfile": {
+          "computerName": "[variables('vmName')]",
+          "adminUsername": "[parameters('adminUserName')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[parameters('infrastructure').operatingSystem.imagePublisher]",
+            "offer": "[parameters('infrastructure').operatingSystem.imageOffer]",
+            "sku": "[parameters('infrastructure').operatingSystem.version]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "[concat(variables('vmName'), '-disk-os')]",
+            "caching": "ReadWrite",
+            "createOption": "FromImage",
+            "managedDisk": {
+              "storageAccountType": "[parameters('infrastructure').disk.osDriveStorageAccountSize]"
+            }
+          },
+          "dataDisks": "[variables('attachedDiskConfig')[string(parameters('infrastructure').disk.attachedDisk.enabled)]]"
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(variables('vmName'),'/DSCProvisioner')]",
+      "apiVersion": "2015-06-15",
+      "location": "[resourceGroup().location]",
+      "condition": "[not(equals(parameters('infrastructure').operatingSystem.imageOffer, 'CentOS'))]",
+      "dependsOn": [
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Powershell",
+        "type": "DSC",
+        "typeHandlerVersion": "2.7",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "ModulesUrl": "[variables('windowsProvisionerDSCModule')]",
+          "ConfigurationFunction": "Provisioner.ps1\\Provisioner",
+          "Properties": {
+            "AttachDisk": "[parameters('infrastructure').disk.attachedDisk.enabled]",
+            "WriteVault": "[parameters('vault').enabled]",
+            "RoleID": "[parameters('vaultRoleID')]",
+            "SecretID": "[parameters('vaultSecretID')]"
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "2015-06-15",
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(variables('vmName'),'/joindomain')]",
+      "location": "[resourceGroup().location]",
+      "condition": "[and(parameters('activeDirectory')['enabled'], not(equals(parameters('infrastructure').operatingSystem.imageOffer, 'CentOS')))]",
+      "dependsOn": [
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]",
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/DSCProvisioner')]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Compute",
+        "type": "JsonADDomainExtension",
+        "typeHandlerVersion": "1.3",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "Name": "[parameters('activeDirectory')['domain']]",
+          "User": "[concat(parameters('domainUsername'), '@', parameters('activeDirectory')['domain'])]",
+          "Restart": "true",
+          "Options": "[parameters('activeDirectory')['joinOptions']]",
+          "OUPath": ""
+        },
+        "protectedSettings": {
+          "Password": "[parameters('domainPassword')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(variables('vmName'),'/centosProvisioner')]",
+      "apiVersion": "2015-06-15",
+      "location": "[resourceGroup().location]",
+      "condition": "[equals(parameters('infrastructure').operatingSystem.imageOffer, 'CentOS')]",
+      "dependsOn": [
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Azure.Extensions",
+        "type": "CustomScript",
+        "typeHandlerVersion": "2.0",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "fileUris": [
+            "[variables('centosProvisionerScriptPath')]"
+          ]
+        },
+        "protectedSettings": {
+          "commandToExecute": "[concat('sh ', variables('centosProvisionerScriptName'), ' ', parameters('infrastructure')['disk']['attachedDisk']['enabled'], ' ', parameters('infrastructure')['disk']['attachedDisk']['linuxMountPath'], ' ', parameters('activeDirectory')['enabled'], ' ', parameters('activeDirectory')['domain'], ' ', parameters('domainUsername'), ' ', parameters('domainPassword'), ' ', parameters('activeDirectory')['linuxAdminGroups'], ' ', parameters('vault').enabled, ' ', parameters('vaultRoleID'), ' ', parameters('vaultSecretID'))]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(variables('vmName'),'/ChefClient')]",
+      "apiVersion": "2015-05-01-preview",
+      "condition": "[parameters('chef').enabled]",
+      "dependsOn": [
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]",
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/DSCProvisioner')]",
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/joindomain')]"
+      ],
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publisher": "Chef.Bootstrap.WindowsAzure",
+        "type": "[variables('chefExtensionType')]",
+        "typeHandlerVersion": "1210.12",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "client_rb": "ssl_verify_mode :verify_none",
+          "bootstrap_version": "[parameters('chef').version]",
+          "daemon": "task",
+          "bootstrap_options": {
+            "chef_node_name": "[variables('vmName')]",
+            "chef_server_url": "[concat(parameters('chef').serverUrl, '/organizations/', parameters('chef').organization)]",
+            "validation_client_name": "[parameters('chef').validatorClientName]"
+          },
+          "custom_json_attr": {
+            "policy_group": "[parameters('chef').policyGroup]",
+            "policy_name": "[parameters('chef').policyName]"
+          },
+          "validation_key_format": "base64encoded"
+        },
+        "protectedSettings": {
+          "validation_key": "[parameters('chefBase64ValidatorKey')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(variables('vmName'),'/OMSClient')]",
+      "apiVersion": "2015-05-01-preview",
+      "dependsOn": [
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]",
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/DSCProvisioner')]",
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/joindomain')]",
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/ChefClient')]"
+      ],
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publisher": "Microsoft.EnterpriseCloud.Monitoring",
+        "type": "[variables('OMSExtensionType')]",
+        "typeHandlerVersion": "1.0",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "workspaceId": "[parameters('oms').OMSWorkspaceId]"
+        },
+        "protectedSettings": {
+          "workspaceKey": "[parameters('oms').OMSWorkspaceKey]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(variables('vmName'),'/WindowsDiskEnryption')]",
+      "dependsOn": [
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]",
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/DSCProvisioner')]",
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/joindomain')]",
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/ChefClient')]",
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/OMSClient')]"
+      ],
+      "condition": "[and(parameters('infrastructure').disk.encryption.enabled, not(equals(parameters('infrastructure').operatingSystem.imageOffer, 'CentOS')))]",
+      "apiVersion": "2016-04-30-preview",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publisher": "Microsoft.Azure.Security",
+        "type": "AzureDiskEncryption",
+        "typeHandlerVersion": "1.1",
+        "autoUpgradeMinorVersion": true,
+        "forceUpdateTag": "[variables('encryptionSequenceNumber')]",
+        "settings": {
+          "AADClientID": "[parameters('encryptionAADClientID')]",
+          "KeyVaultURL": "[variables('encryptionKeyVaultURL')]",
+          "KeyEncryptionKeyURL": "[variables('encryptionKeKURL')]",
+          "KeyEncryptionAlgorithm": "[variables('encryptionKeKAlgorithm')]",
+          "VolumeType": "All",
+          "EncryptionOperation": "EnableEncryption"
+        },
+        "protectedSettings": {
+          "AADClientSecret": "[parameters('encryptionAADClientSecret')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(variables('vmName'),'/LinuxDiskEnryption')]",
+      "dependsOn": [
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]",
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/centosProvisioner')]",
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/ChefClient')]",
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/OMSClient')]"
+      ],
+      "condition": "[and(parameters('infrastructure').disk.encryption.enabled, equals(parameters('infrastructure').operatingSystem.imageOffer, 'CentOS'))]",
+      "apiVersion": "2015-06-15",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publisher": "Microsoft.Azure.Security",
+        "type": "AzureDiskEncryptionForLinux",
+        "typeHandlerVersion": "0.1",
+        "settings": {
+          "AADClientID": "[parameters('encryptionAADClientID')]",
+          "DiskFormatQuery": "",
+          "EncryptionOperation": "EnableEncryption",
+          "KeyEncryptionAlgorithm": "[variables('encryptionKeKAlgorithm')]",
+          "KeyEncryptionKeyURL": "[variables('encryptionKeKURL')]",
+          "KeyVaultURL": "[variables('encryptionKeyVaultURL')]",
+          "SequenceVersion": "[variables('encryptionSequenceNumber')]",
+          "VolumeType": "Data"
+        },
+        "protectedSettings": {
+          "AADClientSecret": "[parameters('encryptionAADClientSecret')]",
+          "Passphrase": "[parameters('encryptionPassphrase')]"
+        }
+      }
+    },
+    {
+      "apiVersion": "2015-01-01",
+      "condition": "[parameters('infrastructure').disk.encryption.enabled]",
+      "dependsOn": [
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]",
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/centosProvisioner')]",
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/DSCProvisioner')]",
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/joindomain')]",
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/ChefClient')]",
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/OMSClient')]",
+        "[resourceId('Microsoft.Compute/virtualMachines/extensions',  variables('vmName'), variables('encryptionExtensionName'))]"
+      ],
+      "name": "[concat(variables('vmName'), '-encryption-update')]",
+      "type": "Microsoft.Resources/deployments",
+      "properties": {
+        "mode": "Incremental",
+        "parameters": {
+          "keyEncryptionKeyURL": {
+            "value": "[variables('encryptionKeKURL')]"
+          },
+          "keyVaultResourceID": {
+            "value": "[variables('encryptionKeyVaultResourceID')]"
+          },
+          "keyVaultSecretUrl": {
+            "value": "[if(not(parameters('infrastructure').disk.encryption.enabled), 'https://null', reference(resourceId('Microsoft.Compute/virtualMachines/extensions',  variables('vmName'), variables('encryptionExtensionName'))).instanceView.statuses[0].message)]"
+          },
+          "vmName": {
+            "value": "[variables('vmName')]"
+          }
+        },
+        "templateLink": {
+          "contentVersion": "4.2.31.0",
+          "uri": "[variables('serverEncryptionUpdateTemplate')]"
+        }
+      }
+    }
+  ],
+  "outputs": {
+  }
+}
