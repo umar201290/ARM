@@ -368,7 +368,7 @@
       "name": "[concat(variables('vmName'),'/centosProvisioner')]",
       "apiVersion": "2015-06-15",
       "location": "[resourceGroup().location]",
-      "condition": "[equals(parameters('infrastructure').operatingSystem.imageOffer, 'CentOS')] or [equals(parameters('infrastructure').operatingSystem.imageOffer, 'Oracle-Linux')]",
+      "condition": "[equals(parameters('infrastructure').operatingSystem.imageOffer, 'Oracle-Linux')],
       "dependsOn": [
         "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]"
       ],
