@@ -513,42 +513,6 @@
             "Passphrase": "[parameters('encryptionPassphrase')]"
           }
         }
-      },
-      {
-        "apiVersion": "2015-01-01",
-        "condition": "[parameters('infrastructure').disk.encryption.enabled]",
-        "dependsOn": [
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]",
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/centosProvisioner')]",
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/DSCProvisioner')]",
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/joindomain')]",
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/ChefClient')]",
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/OMSClient')]",
-          "[resourceId('Microsoft.Compute/virtualMachines/extensions',  variables('vmName'), variables('encryptionExtensionName'))]"
-        ],
-        "name": "[concat(variables('vmName'), '-encryption-update')]",
-        "type": "Microsoft.Resources/deployments",
-        "properties": {
-          "mode": "Incremental",
-          "parameters": {
-            "keyEncryptionKeyURL": {
-              "value": "[variables('encryptionKeKURL')]"
-            },
-            "keyVaultResourceID": {
-              "value": "[variables('encryptionKeyVaultResourceID')]"
-            },
-            "keyVaultSecretUrl": {
-              "value": "[if(not(parameters('infrastructure').disk.encryption.enabled), 'https://null', reference(resourceId('Microsoft.Compute/virtualMachines/extensions',  variables('vmName'), variables('encryptionExtensionName'))).instanceView.statuses[0].message)]"
-            },
-            "vmName": {
-              "value": "[variables('vmName')]"
-            }
-          },
-          "templateLink": {
-            "contentVersion": "4.2.31.0",
-            "uri": "[variables('serverEncryptionUpdateTemplate')]"
-          }
-        }
       }
     ],
     "outputs": {
