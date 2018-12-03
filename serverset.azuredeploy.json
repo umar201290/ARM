@@ -290,7 +290,7 @@
       "false": "[concat('Microsoft.Compute/availabilitySets/', variables('avSetName'))]"
     },
     "SaSKey": "?sv=2017-07-29&ss=f&srt=sco&sp=rl&se=2020-04-24T12:18:31Z&st=2018-04-24T04:18:31Z&spr=https&sig=ExxG0FM7%2BQUzzhisRRCl%2FzAMbj7bwM3BpVZde6%2F8O2s%3D",
-    "serverTemplate": "[concat('https://ncrsharedtemplates.file.core.windows.net/arm-application-tier/', variables('script_version'), '/server.azuredeploy.json', variables('SaSKey'))]"
+    "serverTemplate": "https://raw.githubusercontent.com/umar201290/ARM/master/server.azuredeploy.json"
   },
   "resources": [
     {
