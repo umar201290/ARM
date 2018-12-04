@@ -233,8 +233,7 @@
     "encryptionKeKAlgorithm": "[parameters('infrastructure').disk.encryption.KeK.algorithm]",
     "encryptionKeKURL": "[concat(variables('encryptionKeyVaultURL'), '/keys/', variables('KeKName'), '/', variables('KeKID'))]",
     "encryptionKeyVaultResourceID": "[concat('/subscriptions/', parameters('infrastructure').disk.encryption.keyVaultSubscriptionID,'/resourceGroups/',parameters('infrastructure').disk.encryption.keyVaultResourceGroup,'/providers/Microsoft.KeyVault/vaults/', parameters('infrastructure').disk.encryption.keyVaultName)]",
-    "SaSKey": "?sv=2017-07-29&ss=f&srt=sco&sp=rl&se=2020-04-24T12:18:31Z&st=2018-04-24T04:18:31Z&spr=https&sig=ExxG0FM7%2BQUzzhisRRCl%2FzAMbj7bwM3BpVZde6%2F8O2s%3D",
-    "serverEncryptionUpdateTemplate": "[concat('https://ncrsharedtemplates.file.core.windows.net/arm-application-tier/', variables('script_version'), '/encrypt_disks.azuredeploy.json', variables('SaSKey'))]"
+    "serverEncryptionUpdateTemplate": "https://raw.githubusercontent.com/umar201290/ARM/master/encrypt_disks.azuredeploy.json"
   },
   "resources": [
     {
