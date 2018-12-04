@@ -233,7 +233,8 @@
     "encryptionKeKAlgorithm": "[parameters('infrastructure').disk.encryption.KeK.algorithm]",
     "encryptionKeKURL": "[concat(variables('encryptionKeyVaultURL'), '/keys/', variables('KeKName'), '/', variables('KeKID'))]",
     "encryptionKeyVaultResourceID": "[concat('/subscriptions/', parameters('infrastructure').disk.encryption.keyVaultSubscriptionID,'/resourceGroups/',parameters('infrastructure').disk.encryption.keyVaultResourceGroup,'/providers/Microsoft.KeyVault/vaults/', parameters('infrastructure').disk.encryption.keyVaultName)]",
-    "serverEncryptionUpdateTemplate": "https://raw.githubusercontent.com/umar201290/ARM/master/encrypt_disks.azuredeploy.json"
+    "SaSKey": "?sv=2017-07-29&ss=f&srt=sco&sp=rl&se=2020-04-24T12:18:31Z&st=2018-04-24T04:18:31Z&spr=https&sig=ExxG0FM7%2BQUzzhisRRCl%2FzAMbj7bwM3BpVZde6%2F8O2s%3D",
+    "serverEncryptionUpdateTemplate": "[concat('https://ncrsharedtemplates.file.core.windows.net/arm-application-tier/', variables('script_version'), '/encrypt_disks.azuredeploy.json', variables('SaSKey'))]"
   },
   "resources": [
     {
@@ -403,7 +404,7 @@
         "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/ChefClient')]",
         "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/OMSClient')]"
       ],
-      "condition": "[and(parameters('infrastructure').disk.encryption.enabled, equals(parameters('infrastructure').operatingSystem.imageOffer, 'CentOS'))]",
+      "condition": "[and(parameters('infrastructure').disk.encryption.enabled, equals(parameters('infrastructure').operatingSystem.imageOffer, 'Oracle-Linux'))]",
       "apiVersion": "2015-06-15",
       "location": "[resourceGroup().location]",
       "properties": {
