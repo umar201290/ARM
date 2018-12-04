@@ -343,9 +343,7 @@
         "apiVersion": "2015-05-01-preview",
         "condition": "[parameters('chef').enabled]",
         "dependsOn": [
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]",
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/DSCProvisioner')]",
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/joindomain')]"
+          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]"
         ],
         "location": "[resourceGroup().location]",
         "properties": {
@@ -379,8 +377,6 @@
         "apiVersion": "2015-05-01-preview",
         "dependsOn": [
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]",
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/DSCProvisioner')]",
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/joindomain')]",
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/ChefClient')]"
         ],
         "location": "[resourceGroup().location]",
@@ -402,8 +398,6 @@
         "name": "[concat(variables('vmName'),'/WindowsDiskEnryption')]",
         "dependsOn": [
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]",
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/DSCProvisioner')]",
-          "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/joindomain')]",
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/ChefClient')]",
           "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'),'/extensions/OMSClient')]"
         ],
