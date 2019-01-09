@@ -246,6 +246,8 @@
         "displayName": "[variables('nicName')]"
       },
       "properties": {
+	"primary":true,
+        "enableAcceleratedNetworking": true,        
         "ipConfigurations": [
           {
             "name": "primary",
