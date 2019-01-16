@@ -342,7 +342,7 @@
       "name": "[concat(variables('namingInfix'), 'Srv', copyIndex())]",
       "type": "Microsoft.Resources/deployments",
       "copy": {
-        "name": "[concat(variables('namingInfix'),'VmSubdeployLoop')]",
+        "name": "[concat(variables('namingInfix'),'SubdeployLoop')]",
         "count": "[parameters('infrastructure').numberOfServers]"
       },
       "dependsOn": [
