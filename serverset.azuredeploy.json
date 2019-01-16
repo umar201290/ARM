@@ -339,7 +339,7 @@
     },
     {
       "apiVersion": "2015-01-01",
-      "name": "[concat(variables('namingInfix'), 'Srv', copyIndex())]",
+      "name": "[concat(variables('namingInfix'), 'Srv', copyIndex(1))]",
       "type": "Microsoft.Resources/deployments",
       "copy": {
         "name": "[concat(variables('namingInfix'),'VmSubdeployLoop')]",
@@ -408,7 +408,7 @@
           },
           "assignment": {
             "value": {
-              "vmID": "[copyIndex()]",
+              "vmID": "[copyIndex(1)]",
               "lbName": "[variables('lbName')]",
               "lbID": "[variables('lbID')]",
               "lbBackendPool": "[variables('lbBackendPool')]",
