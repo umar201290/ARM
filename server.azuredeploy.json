@@ -172,7 +172,7 @@
     "script_version": "4.3.9.0",
     "namingInfix": "[toLower(concat(parameters('product').name, parameters('product').tier_name, '-'))]",
     "nicBaseName": "[concat(variables('namingInfix'),'nic')]",
-    "vmBaseName": "[concat(variables('namingInfix'),'vm')]",
+    "vmBaseName": "[variables('namingInfix')]",
     "vmName": "[concat(variables('vmBaseName'), parameters('assignment').vmID)]",
     "nicName": "[concat(variables('nicBaseName'), parameters('assignment').vmID)]",
     "vnetID": "[resourceId(parameters('network').virtualNetwork.resourceGroup, 'Microsoft.Network/virtualNetworks', parameters('network').virtualNetwork.name)]",
